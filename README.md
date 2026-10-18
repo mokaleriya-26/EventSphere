@@ -1,6 +1,6 @@
-# EventSpear — Full-Stack Event Discovery & Management Platform
+# EventSphere — Full-Stack Event Discovery & Management Platform
 
-EventSpear is a full-stack event discovery, registration, and management platform built with React 19, Vite, React Router, Node.js, Express, and MySQL (`mysql2`). It features role-based access control (User/Attendee, Organizer, Admin), transaction-safe concurrency locks for event registration, and live database persistence backed by a local MySQL database (`eventspear_local`).
+EventSphere is a full-stack event discovery, registration, and management platform built with React 19, Vite, React Router, Node.js, Express, and MySQL (`mysql2`). It features role-based access control (User/Attendee, Organizer, Admin), transaction-safe concurrency locks for event registration, and live database persistence backed by a local MySQL database (`EventSphere_local`).
 
 ---
 
@@ -9,7 +9,7 @@ EventSpear is a full-stack event discovery, registration, and management platfor
 The repository is organized into distinct, clean workspaces:
 
 ```text
-EventSpear/
+EventSphere/
 ├── frontend/                          # React 19 + Vite Frontend
 │   ├── src/
 │   │   ├── components/                # Reusable layout & UI cards (Navbar, Sidebar, Topbar, ProtectedRoute)
@@ -92,12 +92,12 @@ FRONTEND_URL=http://localhost:5173
 # Local MySQL Database Connection
 DB_HOST=localhost
 DB_PORT=3306
-DB_NAME=eventspear_local
+DB_NAME=EventSphere_local
 DB_USER=root
 DB_PASSWORD=your_mysql_password_here
 
 # Authentication & Session Security
-JWT_SECRET=eventspear_dev_jwt_secret_replace_in_production_key_12345
+JWT_SECRET=EventSphere_dev_jwt_secret_replace_in_production_key_12345
 JWT_EXPIRES_IN=7d
 COOKIE_NAME=eventsphere_token
 COOKIE_SECURE=false
@@ -120,13 +120,13 @@ You can inspect, edit, and directly import the SQL files using the standard MySQ
 
 ```bash
 # 1. Create the database
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS \`eventspear_local\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS \`EventSphere_local\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
 # 2. Import schema.sql
-mysql -u root -p eventspear_local < database/schema.sql
+mysql -u root -p EventSphere_local < database/schema.sql
 
 # 3. Import seed.sql
-mysql -u root -p eventspear_local < database/seed.sql
+mysql -u root -p EventSphere_local < database/seed.sql
 ```
 
 ### Option B: Node.js Automated Commands
@@ -149,31 +149,31 @@ npm run seed
 
 All 11 seeded development accounts use the unified local development password:
 ```text
-EventSpearLocal!2026
+EventSphereLocal!2026
 ```
 
 ### A. Attendees (5 Accounts)
 | Name | Email Address | Role | Profile Summary |
 |---|---|---|---|
-| Aarav Sharma | `attendee1@eventspear.local` | `attendee` | Software engineer keen on tech conferences & AI summits |
-| Diya Patel | `attendee2@eventspear.local` | `attendee` | UX designer passionate about typography & cultural events |
-| Rohan Mehta | `attendee3@eventspear.local` | `attendee` | Marathon runner, outdoor enthusiast, & tech meetups |
-| Ananya Iyer | `attendee4@eventspear.local` | `attendee` | Classical concert attendee & book reading club organizer |
-| Kabir Verma | `attendee5@eventspear.local` | `attendee` | Entrepreneur & venture community participant |
+| Aarav Sharma | `attendee1@EventSphere.local` | `attendee` | Software engineer keen on tech conferences & AI summits |
+| Diya Patel | `attendee2@EventSphere.local` | `attendee` | UX designer passionate about typography & cultural events |
+| Rohan Mehta | `attendee3@EventSphere.local` | `attendee` | Marathon runner, outdoor enthusiast, & tech meetups |
+| Ananya Iyer | `attendee4@EventSphere.local` | `attendee` | Classical concert attendee & book reading club organizer |
+| Kabir Verma | `attendee5@EventSphere.local` | `attendee` | Entrepreneur & venture community participant |
 
 ### B. Organizers (5 Accounts — 5 Events Owned Each)
 | Organization / Name | Email Address | Role | Specialization |
 |---|---|---|---|
-| TechNova Global Pvt Ltd | `organizer1@eventspear.local` | `organizer` | Cloud, AI, and developer summits |
-| CulturePulse Arts Foundation | `organizer2@eventspear.local` | `organizer` | Contemporary art galas, heritage walks & exhibitions |
-| SoundWave Live Entertainment | `organizer3@eventspear.local` | `organizer` | Acoustic gigs, indie festivals & live concerts |
-| Apex Sports Arena & Ventures | `organizer4@eventspear.local` | `organizer` | Marathons, morning yoga & fitness tournaments |
-| Inspire Learning Foundation | `organizer5@eventspear.local` | `organizer` | Executive speaking, design masterclasses & bootcamps |
+| TechNova Global Pvt Ltd | `organizer1@EventSphere.local` | `organizer` | Cloud, AI, and developer summits |
+| CulturePulse Arts Foundation | `organizer2@EventSphere.local` | `organizer` | Contemporary art galas, heritage walks & exhibitions |
+| SoundWave Live Entertainment | `organizer3@EventSphere.local` | `organizer` | Acoustic gigs, indie festivals & live concerts |
+| Apex Sports Arena & Ventures | `organizer4@EventSphere.local` | `organizer` | Marathons, morning yoga & fitness tournaments |
+| Inspire Learning Foundation | `organizer5@EventSphere.local` | `organizer` | Executive speaking, design masterclasses & bootcamps |
 
 ### C. Administrator (1 Account)
 | Name | Email Address | Role | Scope |
 |---|---|---|---|
-| EventSpear Platform Admin | `admin@eventspear.local` | `admin` | System-wide moderation, user toggle, & platform metrics |
+| EventSphere Platform Admin | `admin@EventSphere.local` | `admin` | System-wide moderation, user toggle, & platform metrics |
 
 ---
 
@@ -250,7 +250,7 @@ To keep editable `.sql` files and your live MySQL database consistent:
    Ensure non-destructive SQL (`ALTER TABLE ... ADD COLUMN ...`).
 3. **Back up the database**:
    ```bash
-   mysqldump -u root -p eventspear_local > database/backup_$(date +%Y%m%d).sql
+   mysqldump -u root -p EventSphere_local > database/backup_$(date +%Y%m%d).sql
    ```
 4. **Execute migration against local database**:
    ```bash
@@ -268,11 +268,11 @@ To keep editable `.sql` files and your live MySQL database consistent:
 
 ```bash
 # Backup database
-mysqldump -u root -p --single-transaction --quick eventspear_local > database/backup.sql
+mysqldump -u root -p --single-transaction --quick EventSphere_local > database/backup.sql
 
 # Restore database
-mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS \`eventspear_local\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-mysql -u root -p eventspear_local < database/backup.sql
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS \`EventSphere_local\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u root -p EventSphere_local < database/backup.sql
 ```
 
 ---
