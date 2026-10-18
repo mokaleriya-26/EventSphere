@@ -24,7 +24,7 @@ const formatPayloadForBackend = (data) => {
 };
 
 export const eventService = {
-  // Sync latest events from backend API into local cache
+  // Sync latest events from backend API
   syncFromBackend: async () => {
     try {
       const res = await apiClient.get('/events?limit=100&dateFilter=all');
@@ -32,7 +32,7 @@ export const eventService = {
         setItem(STORAGE_KEYS.EVENTS, res.data);
         return res.data;
       }
-    } catch (err) {
+    } catch {
       // Backend offline or error; gracefully use local cache
     }
     return getItem(STORAGE_KEYS.EVENTS, []);
@@ -52,113 +52,51 @@ export const eventService = {
     return events.find(e => e.id === id || e.slug === id) || null;
   },
 
-  getOrganizerEvents: (organizerId) => {
+  getOrganizerEventsSync: (organizerId) => {
     const events = getItem(STORAGE_KEYS.EVENTS, []);
-    return events.filter(e => e.organizerId === organizerId);
+    return Array.isArray(events) ? events.filter(e => e.organizerId === organizerId) : [];
   },
 
-  createEvent: async (eventData, currentUser) => {
-    const events = getItem(STORAGE_KEYS.EVENTS, []);
-    let newEvent = null;
-
+  getOrganizerEvents: async (organizerId) => {
     try {
-      const payload = formatPayloadForBackend(eventData);
-      const res = await apiClient.post('/events', payload);
-      if (res?.event) {
-        newEvent = res.event;
+      const res = await apiClient.get('/organizer/events');
+      if (res?.events && Array.isArray(res.events)) {
+        return res.events;
       }
-    } catch (err) {
-      if (err.status !== 0) {
-        // Backend returned specific business/validation error
-        throw err;
-      }
-      // If backend completely offline, proceed with local fallback
+    } catch {
+      // fallback to filtered cache if offline
     }
+    const events = getItem(STORAGE_KEYS.EVENTS, []);
+    return Array.isArray(events) ? events.filter(e => e.organizerId === organizerId) : [];
+  },
 
-    if (!newEvent) {
-      const id = `evt-${Date.now()}`;
-      const slug = eventData.title
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)+/g, '');
-
-      newEvent = {
-        id,
-        slug: `${slug}-${Math.floor(1000 + Math.random() * 9000)}`,
-        title: eventData.title,
-        summary: eventData.summary || '',
-        description: eventData.description || '',
-        categoryId: eventData.categoryId || 'cat-tech',
-        categoryName: eventData.categoryName || 'Tech Events',
-        badgeText: eventData.badgeText || (eventData.priceType === 'paid' ? 'Paid' : 'Free'),
-        organizerId: currentUser ? currentUser.id : 'usr-organizer',
-        organizerName: currentUser ? (currentUser.organization || currentUser.name) : 'InnoVerse Technologies Pvt. Ltd.',
-        organizerAvatar: currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
-        coverImage: eventData.coverImage || 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80',
-        startDate: eventData.startDate,
-        startTime: eventData.startTime || '10:00 AM',
-        endDate: eventData.endDate || eventData.startDate,
-        endTime: eventData.endTime || '04:00 PM',
-        venue: eventData.venue || 'Main Auditorium',
-        city: eventData.city || 'Mumbai',
-        type: eventData.type || 'in-person',
-        capacity: parseInt(eventData.capacity, 10) || 100,
-        registeredCount: 0,
-        priceType: eventData.priceType || 'free',
-        price: eventData.priceType === 'paid' ? parseFloat(eventData.price || 0) : 0,
-        status: eventData.status || 'published',
-        featured: false,
-        createdAt: new Date().toISOString()
-      };
+  createEvent: async (eventData) => {
+    const payload = formatPayloadForBackend(eventData);
+    const res = await apiClient.post('/events', payload);
+    if (!res?.event) {
+      throw new Error('Event creation failed: no event returned from server.');
     }
-
-    const updated = [newEvent, ...events.filter(e => e.id !== newEvent.id)];
-    setItem(STORAGE_KEYS.EVENTS, updated);
+    const newEvent = res.event;
+    const events = getItem(STORAGE_KEYS.EVENTS, []);
+    setItem(STORAGE_KEYS.EVENTS, [newEvent, ...events.filter(e => e.id !== newEvent.id)]);
     return newEvent;
   },
 
   updateEvent: async (id, updates) => {
+    const payload = formatPayloadForBackend(updates);
+    const res = await apiClient.put(`/events/${id}`, payload);
+    if (!res?.event) {
+      throw new Error('Event update failed.');
+    }
+    const updatedEvent = res.event;
     const events = getItem(STORAGE_KEYS.EVENTS, []);
-    const index = events.findIndex(e => e.id === id);
-
-    let updatedEvent = null;
-    try {
-      const payload = formatPayloadForBackend(updates);
-      const res = await apiClient.put(`/events/${id}`, payload);
-      if (res?.event) {
-        updatedEvent = res.event;
-      }
-    } catch (err) {
-      if (err.status !== 0) {
-        throw err;
-      }
-    }
-
-    if (!updatedEvent) {
-      if (index === -1) throw new Error('Event not found');
-      updatedEvent = {
-        ...events[index],
-        ...updates,
-        updatedAt: new Date().toISOString()
-      };
-    }
-
-    if (index !== -1) {
-      events[index] = updatedEvent;
-      setItem(STORAGE_KEYS.EVENTS, [...events]);
-    } else {
-      setItem(STORAGE_KEYS.EVENTS, [updatedEvent, ...events]);
-    }
-
+    const updated = events.map(e => e.id === id ? updatedEvent : e);
+    setItem(STORAGE_KEYS.EVENTS, updated);
     return updatedEvent;
   },
 
   deleteEvent: async (id) => {
-    try {
-      await apiClient.delete(`/events/${id}`);
-    } catch (err) {
-      if (err.status !== 0) throw err;
-    }
+    await apiClient.delete(`/events/${id}`);
     const events = getItem(STORAGE_KEYS.EVENTS, []);
     const filtered = events.filter(e => e.id !== id);
     setItem(STORAGE_KEYS.EVENTS, filtered);
@@ -166,19 +104,11 @@ export const eventService = {
   },
 
   updateEventStatus: async (id, status) => {
-    try {
-      await apiClient.patch(`/events/${id}/status`, { status });
-    } catch (err) {
-      if (err.status !== 0) throw err;
-    }
-
+    const res = await apiClient.patch(`/events/${id}/status`, { status });
     const events = getItem(STORAGE_KEYS.EVENTS, []);
-    const event = events.find(e => e.id === id);
-    if (event) {
-      event.status = status;
-      setItem(STORAGE_KEYS.EVENTS, [...events]);
-    }
-    return event;
+    const updated = events.map(e => e.id === id ? { ...e, status } : e);
+    setItem(STORAGE_KEYS.EVENTS, updated);
+    return res?.event || { id, status };
   },
 
   searchEvents: ({ query = '', category = '', priceType = '', dateFilter = '', city = '', sort = 'upcoming' } = {}) => {

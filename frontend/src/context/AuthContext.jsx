@@ -1,86 +1,112 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { authService } from '../services/authService';
-import { initStorage, resetAllDemoData } from '../services/storage';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authStatus, setAuthStatus] = useState('loading'); // 'loading' | 'authenticated' | 'unauthenticated'
+  const [sessionError, setSessionError] = useState(null);
+  const refreshPromiseRef = useRef(null);
+
+  const refreshSession = async () => {
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
+    }
+    const promise = (async () => {
+      try {
+        const currentUser = await authService.getCurrentUser();
+        if (currentUser) {
+          setUser(currentUser);
+          setAuthStatus('authenticated');
+          setSessionError(null);
+          return currentUser;
+        } else {
+          setUser(null);
+          setAuthStatus('unauthenticated');
+          return null;
+        }
+      } catch (err) {
+        setUser(null);
+        setAuthStatus('unauthenticated');
+        setSessionError(err?.message || null);
+        return null;
+      } finally {
+        setLoading(false);
+        refreshPromiseRef.current = null;
+      }
+    })();
+    refreshPromiseRef.current = promise;
+    return promise;
+  };
 
   useEffect(() => {
-    initStorage();
-    let isMounted = true;
-
-    authService.getCurrentUser()
-      .then((currentUser) => {
-        if (isMounted) {
-          setUser(currentUser);
-          setLoading(false);
-        }
-      })
-      .catch(() => {
-        if (isMounted) {
-          setUser(null);
-          setLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+    refreshSession();
   }, []);
 
-  const login = async (email, password) => {
-    const loggedUser = await authService.login(email, password);
-    setUser(loggedUser);
-    return loggedUser;
+  const login = async (email, password, expectedRole = null) => {
+    setLoading(true);
+    try {
+      const loggedUser = await authService.login(email, password, expectedRole);
+      setUser(loggedUser);
+      setAuthStatus('authenticated');
+      setSessionError(null);
+      return loggedUser;
+    } catch (err) {
+      setSessionError(err?.message || null);
+      throw err;
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = async () => {
-    await authService.logout();
-    setUser(null);
+    setLoading(true);
+    try {
+      await authService.logout();
+    } finally {
+      setUser(null);
+      setAuthStatus('unauthenticated');
+      setSessionError(null);
+      setLoading(false);
+    }
   };
 
   const register = async (userData) => {
-    const newUser = await authService.register(userData);
-    setUser(newUser);
-    return newUser;
-  };
-
-  const switchRole = async (role) => {
-    const switchedUser = await authService.switchRole(role);
-    if (switchedUser) {
-      setUser({ ...switchedUser });
+    setLoading(true);
+    try {
+      const newUser = await authService.register(userData);
+      setUser(newUser);
+      setAuthStatus('authenticated');
+      setSessionError(null);
+      return newUser;
+    } catch (err) {
+      setSessionError(err?.message || null);
+      throw err;
+    } finally {
+      setLoading(false);
     }
-    return switchedUser;
-  };
-
-  const resetData = () => {
-    resetAllDemoData();
-    authService.getCurrentUser().then(u => setUser(u));
   };
 
   const updateUser = (updates) => {
     if (!user) return;
-    const updated = { ...user, ...updates };
-    setUser(updated);
+    setUser(prev => ({ ...prev, ...updates }));
   };
-
-  const demoAccounts = authService.getDemoAccounts();
 
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
+        authStatus,
+        isAuthenticated: authStatus === 'authenticated' && !!user,
+        sessionError,
+        refreshSession,
         login,
         logout,
         register,
-        switchRole,
-        resetData,
         updateUser,
-        demoAccounts,
         isAdmin: user?.role === 'admin',
         isOrganizer: user?.role === 'organizer',
         isAttendee: user?.role === 'attendee'

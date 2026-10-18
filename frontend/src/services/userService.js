@@ -10,7 +10,7 @@ export const userService = {
         return res.users;
       }
     } catch {
-      // Offline fallback
+      // Return cached users on temporary error
     }
     return getItem(STORAGE_KEYS.USERS, []);
   },
@@ -24,59 +24,31 @@ export const userService = {
       throw new Error('Action prevented: You cannot suspend your own active administrator account.');
     }
 
-    try {
-      const res = await apiClient.patch(`/admin/users/${userId}/status`);
-      if (res?.user) {
-        const users = getItem(STORAGE_KEYS.USERS, []);
-        const idx = users.findIndex(u => u.id === userId);
-        if (idx !== -1) users[idx] = res.user;
-        setItem(STORAGE_KEYS.USERS, [...users]);
-        return res.user;
-      }
-    } catch (err) {
-      if (err.status !== 0) throw err;
+    const res = await apiClient.patch(`/admin/users/${userId}/status`);
+    if (res?.user) {
+      const users = getItem(STORAGE_KEYS.USERS, []);
+      const idx = users.findIndex(u => u.id === userId);
+      if (idx !== -1) users[idx] = res.user;
+      setItem(STORAGE_KEYS.USERS, [...users]);
+      return res.user;
     }
-
-    const users = getItem(STORAGE_KEYS.USERS, []);
-    const user = users.find(u => u.id === userId);
-    if (!user) throw new Error('User not found');
-
-    user.status = user.status === 'suspended' ? 'active' : 'suspended';
-    setItem(STORAGE_KEYS.USERS, [...users]);
-    return user;
+    throw new Error('Failed to update user status on server.');
   },
 
   updateUserProfile: async (userId, updates) => {
-    try {
-      const res = await apiClient.put('/users/profile', updates);
-      if (res?.user) {
-        const users = getItem(STORAGE_KEYS.USERS, []);
-        const idx = users.findIndex(u => u.id === userId);
-        if (idx !== -1) users[idx] = res.user;
-        setItem(STORAGE_KEYS.USERS, [...users]);
+    const res = await apiClient.put('/users/profile', updates);
+    if (res?.user) {
+      const users = getItem(STORAGE_KEYS.USERS, []);
+      const idx = users.findIndex(u => u.id === userId);
+      if (idx !== -1) users[idx] = res.user;
+      setItem(STORAGE_KEYS.USERS, [...users]);
 
-        const currentUser = getItem(STORAGE_KEYS.CURRENT_USER, null);
-        if (currentUser && currentUser.id === userId) {
-          setItem(STORAGE_KEYS.CURRENT_USER, res.user);
-        }
-        return res.user;
+      const currentUser = getItem(STORAGE_KEYS.CURRENT_USER, null);
+      if (currentUser && currentUser.id === userId) {
+        setItem(STORAGE_KEYS.CURRENT_USER, res.user);
       }
-    } catch (err) {
-      if (err.status !== 0) throw err;
+      return res.user;
     }
-
-    const users = getItem(STORAGE_KEYS.USERS, []);
-    const index = users.findIndex(u => u.id === userId);
-    if (index === -1) throw new Error('User not found');
-
-    users[index] = { ...users[index], ...updates };
-    setItem(STORAGE_KEYS.USERS, [...users]);
-
-    const currentUser = getItem(STORAGE_KEYS.CURRENT_USER, null);
-    if (currentUser && currentUser.id === userId) {
-      setItem(STORAGE_KEYS.CURRENT_USER, users[index]);
-    }
-
-    return users[index];
+    throw new Error('Failed to update profile on server.');
   }
 };

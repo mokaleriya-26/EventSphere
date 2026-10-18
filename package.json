@@ -12,6 +12,11 @@
     "build": "npm --prefix frontend run build",
     "build:frontend": "npm --prefix frontend run build",
     "lint:frontend": "npm --prefix frontend run lint",
-    "test:backend": "npm --prefix backend test"
+    "test": "npm --prefix backend test",
+    "test:backend": "npm --prefix backend test",
+    "db": "node backend/src/database/manage.js status",
+    "db:status": "node backend/src/database/manage.js status",
+    "db:reset": "node backend/src/database/manage.js reset",
+    "db:backup": "node backend/src/database/manage.js backup"
   }
 }

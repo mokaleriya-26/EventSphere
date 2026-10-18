@@ -10,6 +10,11 @@ import {
 } from '../../seeds/seedData.js';
 
 export async function seedDatabase() {
+  if (env.NODE_ENV === 'production' && process.env.ALLOW_PROD_SEED !== 'true') {
+    console.error('❌ [Seed Safety] Seeding demo accounts is disabled in production. Set ALLOW_PROD_SEED=true to override.');
+    throw new Error('Database seeding disabled in production.');
+  }
+
   console.log(`[Seed] Connecting to MySQL '${env.DB_NAME}' at ${env.DB_HOST}:${env.DB_PORT}...`);
 
   let dbConn;

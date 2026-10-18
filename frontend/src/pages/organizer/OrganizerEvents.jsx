@@ -20,6 +20,8 @@ import {
   Clock
 } from 'lucide-react';
 
+import { apiClient } from '../../services/apiClient';
+
 export const OrganizerEvents = () => {
   const { user } = useAuth();
   const { showToast } = useToast();
@@ -31,29 +33,42 @@ export const OrganizerEvents = () => {
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState('all');
 
-  // Load events owned by this organizer (or all if organizer account)
+  // Load events owned by this organizer
   const organizerId = user?.id || 'usr-organizer';
-  const [events, setEvents] = useState(() => eventService.getOrganizerEvents(organizerId));
+  const [events, setEvents] = useState(() => eventService.getOrganizerEventsSync(organizerId));
 
-  const refreshEvents = () => {
-    setEvents(eventService.getOrganizerEvents(organizerId));
+  const refreshEvents = async () => {
+    try {
+      const data = await eventService.getOrganizerEvents(organizerId);
+      if (Array.isArray(data)) {
+        setEvents(data);
+      }
+    } catch {
+      setEvents(eventService.getOrganizerEventsSync(organizerId));
+    }
   };
+
+  React.useEffect(() => {
+    refreshEvents();
+  }, [organizerId]);
 
   const today = new Date().toISOString().split('T')[0];
 
   // Tab counts
   const counts = useMemo(() => {
-    const all = events.length;
-    const upcoming = events.filter(e => e.status === 'published' && e.startDate >= today).length;
-    const ongoing = events.filter(e => e.startDate === today && e.status === 'published').length;
-    const past = events.filter(e => e.startDate < today || e.status === 'past').length;
-    const drafts = events.filter(e => e.status === 'draft').length;
+    const list = Array.isArray(events) ? events : [];
+    const all = list.length;
+    const upcoming = list.filter(e => e.status === 'published' && e.startDate >= today).length;
+    const ongoing = list.filter(e => e.startDate === today && e.status === 'published').length;
+    const past = list.filter(e => e.startDate < today || e.status === 'past').length;
+    const drafts = list.filter(e => e.status === 'draft').length;
     return { all, upcoming, ongoing, past, drafts };
   }, [events, today]);
 
   // Filtered list
   const displayedEvents = useMemo(() => {
-    return events.filter(e => {
+    const list = Array.isArray(events) ? events : [];
+    return list.filter(e => {
       // Tab filter
       if (activeTab === 'upcoming' && (e.status !== 'published' || e.startDate < today)) return false;
       if (activeTab === 'ongoing' && (e.startDate !== today || e.status !== 'published')) return false;

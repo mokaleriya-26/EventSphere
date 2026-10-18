@@ -30,6 +30,12 @@ export const AttendeeBookings = () => {
     setBookings(bookingService.getUserBookings(userId));
   };
 
+  React.useEffect(() => {
+    bookingService.syncMyBookings().then(() => {
+      refreshBookings();
+    });
+  }, [userId]);
+
   const today = new Date().toISOString().split('T')[0];
 
   const counts = useMemo(() => {

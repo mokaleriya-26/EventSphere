@@ -19,14 +19,24 @@ export const AttendeeDashboard = () => {
   const { user } = useAuth();
   const userId = user?.id || 'usr-attendee';
 
-  const bookings = bookingService.getUserBookings(userId);
+  const [bookings, setBookings] = React.useState(() => bookingService.getUserBookings(userId));
+  const [publicEvents, setPublicEvents] = React.useState(() => eventService.getPublicEvents());
+
+  React.useEffect(() => {
+    bookingService.syncMyBookings().then(() => {
+      setBookings(bookingService.getUserBookings(userId));
+    });
+    eventService.syncFromBackend().then(() => {
+      setPublicEvents(eventService.getPublicEvents());
+    });
+  }, [userId]);
+
   const activeBookings = bookings.filter(b => b.status === 'confirmed');
   const pastBookings = bookings.filter(b => b.status === 'past');
 
   // Recommendations: 3 published events user hasn't booked yet
   const bookedEventIds = new Set(bookings.map(b => b.eventId));
-  const recommendedEvents = eventService
-    .getPublicEvents()
+  const recommendedEvents = publicEvents
     .filter(e => !bookedEventIds.has(e.id))
     .slice(0, 3);
 

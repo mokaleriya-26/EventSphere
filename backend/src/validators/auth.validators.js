@@ -16,7 +16,8 @@ export const registerSchema = z.object({
 export const loginSchema = z.object({
   body: z.object({
     email: z.string().trim().email('Invalid email address').transform(val => val.toLowerCase()),
-    password: z.string().min(1, 'Password is required')
+    password: z.string().min(1, 'Password is required'),
+    expectedRole: z.enum(['attendee', 'organizer', 'admin']).optional()
   })
 });
 

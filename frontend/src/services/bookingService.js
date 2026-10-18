@@ -7,14 +7,11 @@ export const bookingService = {
     try {
       const res = await apiClient.get('/registrations/me');
       if (res?.bookings && Array.isArray(res.bookings)) {
-        const existing = getItem(STORAGE_KEYS.BOOKINGS, []);
-        const otherBookings = existing.filter(b => !res.bookings.some(rb => rb.id === b.id));
-        const merged = [...res.bookings, ...otherBookings];
-        setItem(STORAGE_KEYS.BOOKINGS, merged);
+        setItem(STORAGE_KEYS.BOOKINGS, res.bookings);
         return res.bookings;
       }
     } catch {
-      // Offline fallback
+      // Return whatever is cached if network fails
     }
     return getItem(STORAGE_KEYS.BOOKINGS, []);
   },
@@ -24,21 +21,28 @@ export const bookingService = {
     return bookings.filter(b => b.userId === userId || b.attendeeId === userId);
   },
 
-  getEventAttendees: (eventId) => {
+  getEventAttendees: async (eventId) => {
+    try {
+      const res = await apiClient.get(`/organizer/events/${eventId}/attendees`);
+      if (res?.attendees) {
+        return res.attendees;
+      }
+    } catch {
+      // Fallback to local cache
+    }
     const bookings = getItem(STORAGE_KEYS.BOOKINGS, []);
     return bookings.filter(b => b.eventId === eventId && b.status !== 'cancelled');
   },
 
-  getEventAvailability: (eventId) => {
-    const event = eventService.getEventById(eventId);
+  getEventAvailability: (eventOrId) => {
+    let event = eventOrId;
+    if (typeof eventOrId === 'string') {
+      event = eventService.getEventById(eventOrId);
+    }
     if (!event) return { available: false, reason: 'Event not found' };
 
     const today = new Date().toISOString().split('T')[0];
-    const bookings = getItem(STORAGE_KEYS.BOOKINGS, []);
-    const confirmedBookings = bookings.filter(
-      b => b.eventId === event.id && b.status === 'confirmed'
-    );
-    const confirmedCount = confirmedBookings.length;
+    const confirmedCount = event.registeredCount || 0;
     const capacity = event.capacity || 0;
     const remainingSpots = Math.max(0, capacity - confirmedCount);
 
@@ -62,7 +66,7 @@ export const bookingService = {
       };
     }
 
-    if (event.startDate < today || event.status === 'past') {
+    if (event.startDate < today || event.status === 'past' || event.status === 'completed') {
       return {
         available: false,
         reason: 'This event has already passed and cannot accept new registrations.',
@@ -72,7 +76,7 @@ export const bookingService = {
       };
     }
 
-    if (remainingSpots <= 0) {
+    if (remainingSpots <= 0 && capacity > 0) {
       return {
         available: false,
         reason: 'This event has reached full capacity.',
@@ -99,93 +103,34 @@ export const bookingService = {
       throw new Error('Direct credit card payments are coming soon in our next release.');
     }
 
-    let newBooking = null;
+    const res = await apiClient.post(`/registrations/events/${event.id}/register`, {
+      ticketType
+    });
 
-    try {
-      const res = await apiClient.post(`/registrations/events/${event.id}/register`, {
-        ticketType
-      });
-      if (res?.booking) {
-        newBooking = {
-          ...res.booking,
-          userId: user.id
-        };
-      }
-    } catch (err) {
-      if (err.status !== 0) {
-        throw err;
-      }
+    if (!res?.booking) {
+      throw new Error('Registration failed: no booking returned from server.');
     }
+
+    const newBooking = {
+      ...res.booking,
+      userId: user.id
+    };
 
     const bookings = getItem(STORAGE_KEYS.BOOKINGS, []);
-
-    if (!newBooking) {
-      // Local fallback if offline
-      const existing = bookings.find(
-        b => b.eventId === event.id && (b.userId === user.id || b.attendeeId === user.id) && b.status === 'confirmed'
-      );
-      if (existing) {
-        throw new Error(`You have already registered for this event with booking reference: ${existing.bookingRef}`);
-      }
-
-      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-      const bookingRef = `ES-2026-${randomSuffix}`;
-
-      newBooking = {
-        id: `bkg-${Date.now()}-${randomSuffix}`,
-        bookingRef,
-        bookingReference: bookingRef,
-        eventId: event.id,
-        eventTitle: event.title,
-        eventDate: event.startDate,
-        eventTime: `${event.startTime} - ${event.endTime}`,
-        venue: `${event.venue || event.venueName}, ${event.city}`,
-        userId: user.id,
-        attendeeName: user.name,
-        attendeeEmail: user.email,
-        ticketType: ticketType || 'General Admission',
-        price: 0,
-        status: 'confirmed',
-        bookingDate: new Date().toISOString()
-      };
-    }
-
-    const updatedBookings = [newBooking, ...bookings];
+    const updatedBookings = [newBooking, ...bookings.filter(b => b.id !== newBooking.id)];
     setItem(STORAGE_KEYS.BOOKINGS, updatedBookings);
-
-    const confirmedRemaining = updatedBookings.filter(
-      b => b.eventId === event.id && b.status === 'confirmed'
-    ).length;
-    eventService.updateEvent(event.id, {
-      registeredCount: confirmedRemaining
-    });
 
     return newBooking;
   },
 
   cancelBooking: async (bookingId) => {
-    try {
-      await apiClient.delete(`/registrations/${bookingId}`);
-    } catch (err) {
-      if (err.status !== 0) throw err;
-    }
+    await apiClient.delete(`/registrations/${bookingId}`);
 
     const bookings = getItem(STORAGE_KEYS.BOOKINGS, []);
-    const booking = bookings.find(b => b.id === bookingId);
-    if (!booking) throw new Error('Booking not found.');
+    const updated = bookings.map(b => b.id === bookingId ? { ...b, status: 'cancelled' } : b);
+    setItem(STORAGE_KEYS.BOOKINGS, updated);
 
-    booking.status = 'cancelled';
-    setItem(STORAGE_KEYS.BOOKINGS, [...bookings]);
-
-    const confirmedRemaining = bookings.filter(
-      b => b.eventId === booking.eventId && b.status === 'confirmed'
-    ).length;
-
-    eventService.updateEvent(booking.eventId, {
-      registeredCount: confirmedRemaining
-    });
-
-    return booking;
+    return { id: bookingId, status: 'cancelled' };
   },
 
   exportAttendeesCSV: (event, attendees) => {
@@ -196,11 +141,11 @@ export const bookingService = {
     const headers = ['Booking Ref', 'Attendee Name', 'Email', 'Ticket Type', 'Status', 'Registration Date'];
     const rows = attendees.map(a => [
       `"${a.bookingRef || a.bookingReference}"`,
-      `"${a.attendeeName}"`,
-      `"${a.attendeeEmail}"`,
-      `"${a.ticketType}"`,
+      `"${a.attendeeName || a.name}"`,
+      `"${a.attendeeEmail || a.email}"`,
+      `"${a.ticketType || 'General Admission'}"`,
       `"${a.status}"`,
-      `"${new Date(a.bookingDate || a.registeredAt).toLocaleDateString()}"`
+      `"${new Date(a.bookingDate || a.registeredAt || a.created_at || Date.now()).toLocaleDateString()}"`
     ]);
 
     const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');

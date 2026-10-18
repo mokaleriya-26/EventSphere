@@ -24,7 +24,7 @@ import {
 export const EventRegisterPage = () => {
   const { eventId } = useParams();
   const navigate = useNavigate();
-  const { user, switchRole } = useAuth();
+  const { user } = useAuth();
   const { showToast } = useToast();
 
   const [ticketType, setTicketType] = useState('General Admission');
@@ -35,7 +35,6 @@ export const EventRegisterPage = () => {
 
   const event = eventService.getEventById(eventId);
 
-  // If visitor is not logged in, redirect to login with destination preserved
   useEffect(() => {
     if (!user) {
       navigate(`/login?redirect=/events/${eventId}/register`, { replace: true });
@@ -57,8 +56,8 @@ export const EventRegisterPage = () => {
   }
 
   // Live availability & rules check
-  const availability = bookingService.getEventAvailability(event.id);
-  const isPaid = event.priceType === 'paid';
+  const availability = bookingService.getEventAvailability(event);
+  const isPaid = event.priceType === 'paid' || event.price > 0;
 
   // Check if current user already registered
   const userBookings = user ? bookingService.getUserBookings(user.id) : [];
@@ -72,11 +71,6 @@ export const EventRegisterPage = () => {
     day: 'numeric',
     year: 'numeric'
   });
-
-  const handleSwitchToAttendee = () => {
-    switchRole('attendee');
-    showToast('Switched to Attendee profile (Sarah Jenkins).', 'success');
-  };
 
   const handleConfirmRegistration = async (e) => {
     e.preventDefault();
@@ -269,14 +263,13 @@ export const EventRegisterPage = () => {
               Event tickets should be booked with an attendee profile.
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleSwitchToAttendee}
+          <Link
+            to="/login"
             className="btn-primary"
-            style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#2563EB' }}
+            style={{ padding: '6px 14px', fontSize: '0.82rem', background: '#2563EB', textDecoration: 'none' }}
           >
-            Switch to Attendee Profile
-          </button>
+            Sign In with Attendee Account
+          </Link>
         </div>
       )}
 

@@ -11,7 +11,12 @@ export const getDashboard = async (req, res, next) => {
     const stats = await getAdminStats();
     res.status(200).json({
       success: true,
-      stats
+      stats,
+      users: stats.users,
+      events: stats.events,
+      registrations: stats.bookings,
+      recentEvents: stats.recentEvents,
+      recentRegistrations: stats.recentRegistrations
     });
   } catch (err) {
     next(err);

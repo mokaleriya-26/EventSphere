@@ -46,7 +46,7 @@ export const RegisterPage = () => {
       showToast(`Welcome to EventSphere, ${newUser.name}!`, 'success');
 
       if (newUser.role === 'organizer') navigate('/organizer/events');
-      else navigate('/attendee/dashboard');
+      else navigate('/');
     } catch (err) {
       setError(err.message || 'Registration failed.');
     } finally {

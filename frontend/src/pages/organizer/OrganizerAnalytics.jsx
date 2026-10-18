@@ -15,19 +15,34 @@ export const OrganizerAnalytics = () => {
   const { user } = useAuth();
   const organizerId = user?.id || 'usr-organizer';
 
-  const myEvents = eventService.getOrganizerEvents(organizerId);
+  const [myEvents, setMyEvents] = React.useState(() => eventService.getOrganizerEventsSync(organizerId));
+
+  React.useEffect(() => {
+    let isMounted = true;
+    eventService.getOrganizerEvents(organizerId).then(data => {
+      if (isMounted && Array.isArray(data)) {
+        setMyEvents(data);
+      }
+    }).catch(() => {
+      if (isMounted) {
+        setMyEvents(eventService.getOrganizerEventsSync(organizerId));
+      }
+    });
+    return () => { isMounted = false; };
+  }, [organizerId]);
 
   const analytics = useMemo(() => {
-    const totalEvents = myEvents.length;
-    const published = myEvents.filter(e => e.status === 'published').length;
-    const drafts = myEvents.filter(e => e.status === 'draft').length;
-    const totalRegistrations = myEvents.reduce((acc, e) => acc + (e.registeredCount || 0), 0);
-    const totalCapacity = myEvents.reduce((acc, e) => acc + (e.capacity || 0), 0);
+    const list = Array.isArray(myEvents) ? myEvents : [];
+    const totalEvents = list.length;
+    const published = list.filter(e => e.status === 'published').length;
+    const drafts = list.filter(e => e.status === 'draft').length;
+    const totalRegistrations = list.reduce((acc, e) => acc + (e.registeredCount || 0), 0);
+    const totalCapacity = list.reduce((acc, e) => acc + (e.capacity || 0), 0);
     const avgFillRate = totalCapacity > 0 ? Math.round((totalRegistrations / totalCapacity) * 100) : 0;
 
     // Category distribution
     const categoryCounts = {};
-    myEvents.forEach(e => {
+    list.forEach(e => {
       const cat = e.categoryName || 'Other';
       categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
     });

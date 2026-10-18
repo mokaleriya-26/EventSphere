@@ -2,15 +2,15 @@ import React, { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
-import { DemoSwitcher } from '../common/DemoSwitcher';
 
 export const DashboardLayout = ({ title = 'Dashboard' }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-      {/* Demo Switcher Banner */}
-      <DemoSwitcher />
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
 
       <div className="dashboard-shell">
         {/* Persistent Purple Sidebar */}
@@ -22,7 +22,7 @@ export const DashboardLayout = ({ title = 'Dashboard' }) => {
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
             title={title}
           />
-          <main className="dashboard-content">
+          <main id="main-content" className="dashboard-content">
             <Outlet />
           </main>
         </div>

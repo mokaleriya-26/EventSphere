@@ -16,13 +16,13 @@ export const env = {
 
   DB_HOST: process.env.DB_HOST || 'localhost',
   DB_PORT: parseInt(process.env.DB_PORT, 10) || 3306,
-  DB_NAME: process.env.DB_NAME || 'eventsphere_db',
+  DB_NAME: process.env.DB_NAME || 'eventspear_local',
   DB_USER: process.env.DB_USER || 'root',
   DB_PASSWORD: process.env.DB_PASSWORD || '',
 
-  JWT_SECRET: process.env.JWT_SECRET || 'eventsphere_jwt_secret_dev_key_change_in_production_123',
+  JWT_SECRET: process.env.JWT_SECRET || 'eventspear_jwt_super_secret_local_dev_key_2026!',
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
-  COOKIE_NAME: process.env.COOKIE_NAME || 'eventsphere_token',
+  COOKIE_NAME: process.env.COOKIE_NAME || 'eventspear_token',
   COOKIE_SECURE: process.env.COOKIE_SECURE === 'true' || process.env.NODE_ENV === 'production',
   COOKIE_SAME_SITE: process.env.COOKIE_SAME_SITE || 'lax'
 };

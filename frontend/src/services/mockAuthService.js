@@ -1,6 +1,7 @@
 import { getItem, setItem, STORAGE_KEYS } from './storage';
 
-export const DEMO_PASSWORD = 'EventSphere123!';
+export const DEMO_PASSWORD = 'EventSpearDemo!2026';
+export const LEGACY_DEMO_PASSWORD = 'EventSphere123!';
 
 export const mockAuthService = {
   getCurrentUser: () => {
@@ -23,7 +24,7 @@ export const mockAuthService = {
       throw new Error('This account has been suspended by an administrator.');
     }
     // Accept demo password or any password in demo mode
-    if (password && password !== DEMO_PASSWORD && password.length < 6) {
+    if (password && password !== DEMO_PASSWORD && password !== LEGACY_DEMO_PASSWORD && password.length < 6) {
       throw new Error('Password must be at least 6 characters.');
     }
 

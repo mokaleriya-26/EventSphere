@@ -2,13 +2,16 @@ import { query } from '../config/database.js';
 import { formatEvent } from './event.service.js';
 
 export const getOrganizerDashboardMetrics = async (organizerId) => {
-  // 1. Total events, published, draft counts
+  // 1. Total events, published, draft, past, today counts
   const eventCountsSql = `
     SELECT
       COUNT(*) as total_events,
       SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END) as published_events,
       SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as draft_events,
-      SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_events
+      SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) as cancelled_events,
+      SUM(CASE WHEN status = 'past' OR end_datetime < NOW() THEN 1 ELSE 0 END) as past_events,
+      SUM(CASE WHEN DATE(start_datetime) = CURRENT_DATE() THEN 1 ELSE 0 END) as today_events,
+      SUM(CASE WHEN DATE(start_datetime) > CURRENT_DATE() AND status = 'published' THEN 1 ELSE 0 END) as upcoming_events
     FROM events
     WHERE organizer_id = ?
   `;
@@ -99,6 +102,9 @@ export const getOrganizerDashboardMetrics = async (organizerId) => {
       totalEvents,
       publishedEvents,
       draftEvents,
+      pastEvents: Number(eventCounts?.past_events || 0),
+      todayEvents: Number(eventCounts?.today_events || 0),
+      upcomingEvents: Number(eventCounts?.upcoming_events || 0),
       totalRegistrations,
       totalCapacity,
       avgOccupancyRate: `${avgOccupancy}%`

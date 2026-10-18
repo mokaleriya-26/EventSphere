@@ -1,6 +1,6 @@
-# EventSphere — Full-Stack Event Discovery & Management Platform
+# EventSpear — Full-Stack Event Discovery & Management Platform
 
-EventSphere is a full-stack event discovery, registration, and management platform built with React 19, Vite, Node.js, Express, and MySQL. It features a curated violet, lavender, and mint design system, role-based access control (Attendee, Organizer, Admin), and database-driven transaction safety.
+EventSpear is a full-stack event discovery, registration, and management platform built with React 19, Vite, React Router, Node.js, Express, and MySQL (`mysql2`). It features role-based access control (User/Attendee, Organizer, Admin), transaction-safe concurrency locks for event registration, and live database persistence backed by a local MySQL database (`eventspear_local`).
 
 ---
 
@@ -8,285 +8,337 @@ EventSphere is a full-stack event discovery, registration, and management platfo
 
 The repository is organized into distinct, clean workspaces:
 
-```
-DonorConnect/
-├── frontend/               # React 19 + Vite Frontend
-│   ├── public/             # Static assets & favicons
+```text
+EventSpear/
+├── frontend/                          # React 19 + Vite Frontend
 │   ├── src/
-│   │   ├── components/     # Reusable layout & UI cards (violet sidebar, white cards)
-│   │   ├── context/        # AuthContext (HTTP-only session) & ToastContext
-│   │   ├── pages/          # Public, Attendee, Organizer, Admin, & Utility pages
-│   │   ├── services/       # Centralized apiClient, authService, eventService, etc.
-│   │   ├── App.jsx         # Complete client-side routing
-│   │   └── index.css       # Core design tokens, gradients, and typography
-│   ├── .env.example        # Frontend environment template
-│   └── package.json        # Frontend scripts and dependencies
+│   │   ├── components/                # Reusable layout & UI cards (Navbar, Sidebar, Topbar, ProtectedRoute)
+│   │   ├── context/                   # AuthContext (HTTP-only session) & ToastContext
+│   │   ├── pages/                     # Public, Attendee, Organizer, Admin, & Utility pages
+│   │   ├── services/                  # Centralized apiClient, authService, eventService, bookingService, userService
+│   │   ├── App.jsx                    # Client-side routing, protected guards & entry flow
+│   │   └── index.css                  # Core design tokens, gradients, and typography
+│   ├── .env.example                   # Frontend environment template
+│   └── package.json                   # Frontend scripts and dependencies
 │
-├── backend/                # Node.js + Express REST API
+├── backend/                           # Node.js + Express REST API
 │   ├── src/
-│   │   ├── config/         # Environment variables and MySQL connection pooling
-│   │   ├── controllers/    # Request handlers for auth, events, registrations, admin
-│   │   ├── database/       # Migration and seed execution scripts
-│   │   ├── middleware/     # JWT authentication, role authorization, rate limiter, errors
-│   │   ├── routes/         # Modular Express routers mounted under /api
-│   │   ├── services/       # Business logic with transaction locks & validation
-│   │   ├── validators/     # Zod schema definitions
-│   │   ├── app.js          # Express app with Helmet, CORS, and centralized errors
-│   │   └── server.js       # HTTP server entrypoint
-│   ├── migrations/         # Versioned SQL migrations (001_create_tables.sql)
-│   ├── seeds/              # Demonstration data definitions
-│   ├── tests/              # Vitest & Supertest automated test suite
-│   ├── .env.example        # Backend environment template
-│   └── package.json        # Backend scripts and dependencies
+│   │   ├── config/                    # Environment variables and MySQL connection pooling
+│   │   ├── controllers/               # Request handlers for auth, events, registrations, organizer, admin
+│   │   ├── database/                  # Migration runner (migrate.js) and seed runner (seed.js)
+│   │   ├── middleware/                # JWT authentication, role authorization, rate limiter, errors
+│   │   ├── routes/                    # Modular Express routers mounted under /api
+│   │   ├── services/                  # Business logic with transaction locks & Zod validation
+│   │   ├── validators/                # Zod schema definitions
+│   │   ├── app.js                     # Express app with Helmet, CORS, and centralized errors
+│   │   └── server.js                  # HTTP server entrypoint
+│   ├── migrations/                    # Versioned SQL migrations (001_create_tables.sql)
+│   ├── seeds/                         # Dynamic JavaScript seed data (seedData.js)
+│   ├── tests/                         # Vitest & Supertest automated test suite (44 tests)
+│   ├── .env.example                   # Backend environment template
+│   └── package.json                   # Backend scripts and dependencies
 │
-├── .env.example            # Workspace environment template
-├── .gitignore              # Ignores .env, node_modules, dist, logs, and coverage
-├── package.json            # Root workspace task runner
-└── README.md               # Architecture, setup, API, and troubleshooting guide
+├── database/                          # Editable SQL Files & Database Administration
+│   ├── schema.sql                     # Complete DDL schema to recreate database and tables
+│   ├── seed.sql                       # Complete SQL seed dataset (11 users, 25 events, categories)
+│   ├── README.md                      # Comprehensive database administration documentation
+│   └── migrations/
+│       ├── 001_initial_schema.sql     # Versioned incremental migration
+│       └── 001_create_tables.sql      # Initial schema table creation
+│
+├── .gitignore                         # Ignores .env, node_modules, dist, logs, and coverage
+├── package.json                       # Root workspace task runner
+└── README.md                          # Architecture, setup, API, and troubleshooting guide
 ```
 
 ---
 
-## 2. Prerequisites
+## 2. Prerequisites & Local MySQL Requirements
 
-- **Node.js**: v18.0.0 or later (tested on Node v26)
+- **Node.js**: v18.0.0 or later (Node v20+ recommended)
 - **npm**: v9.0.0 or later
-- **MySQL**: 8.0+ or MySQL Community Server (e.g. 9.5) installed locally or reachable on Amazon RDS
+- **MySQL Server**: 8.0+ or MySQL Community Server (e.g. 8.4 or 9.x) running locally on port 3306
+
+To start the local MySQL service:
+```bash
+# macOS (Homebrew)
+brew services start mysql
+
+# Ubuntu / Debian Linux
+sudo systemctl start mysql
+
+# Windows
+net start MySQL80
+```
 
 ---
 
-## 3. Environment Variables
+## 3. Environment Variables Setup
 
 ### Backend Configuration (`backend/.env`)
 
-Copy `backend/.env.example` to `backend/.env`:
-
+Copy the example environment file if not already present:
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-| Variable | Description | Example / Default |
-|---|---|---|
-| `PORT` | Backend server port | `5000` |
-| `NODE_ENV` | Environment (`development`, `production`) | `development` |
-| `FRONTEND_URL` | Allowed client origin for CORS | `http://localhost:5173` |
-| `DB_HOST` | MySQL hostname | `localhost` |
-| `DB_PORT` | MySQL port | `3306` |
-| `DB_NAME` | Database name | `eventsphere_db` |
-| `DB_USER` | MySQL username | `root` |
-| `DB_PASSWORD` | MySQL password | `your_mysql_password` |
-| `JWT_SECRET` | Secret key for signing tokens | `secure_random_key_here` |
-| `JWT_EXPIRES_IN` | Token duration | `7d` |
-| `COOKIE_NAME` | HTTP-only session cookie name | `eventsphere_token` |
-| `COOKIE_SECURE` | Set `true` in HTTPS production | `false` |
-| `COOKIE_SAME_SITE` | Cookie SameSite policy | `lax` |
+Configure your local MySQL credentials:
+```ini
+# Server Configuration
+PORT=5000
+NODE_ENV=development
+FRONTEND_URL=http://localhost:5173
+
+# Local MySQL Database Connection
+DB_HOST=localhost
+DB_PORT=3306
+DB_NAME=eventspear_local
+DB_USER=root
+DB_PASSWORD=your_mysql_password_here
+
+# Authentication & Session Security
+JWT_SECRET=eventspear_dev_jwt_secret_replace_in_production_key_12345
+JWT_EXPIRES_IN=7d
+COOKIE_NAME=eventsphere_token
+COOKIE_SECURE=false
+COOKIE_SAME_SITE=lax
+```
 
 ### Frontend Configuration (`frontend/.env`)
 
-Copy `frontend/.env.example` to `frontend/.env`:
-
-```bash
-cp frontend/.env.example frontend/.env
+```ini
+VITE_API_BASE_URL=http://localhost:5000/api
 ```
-
-| Variable | Description | Default |
-|---|---|---|
-| `VITE_API_BASE_URL` | Public endpoint for backend API | `http://localhost:5000/api` |
 
 ---
 
-## 4. Database Setup & Migrations
+## 4. Database Setup, Migrations & Seeds
 
-### A. Creating the Database & Running Migrations
+### Option A: Direct SQL Import (Fastest & Standalone)
 
-EventSphere uses automated migration scripts that automatically create the database if it doesn't already exist and apply all relational schema tables, constraints, foreign keys, and indexes.
-
-From the `backend/` directory:
+You can inspect, edit, and directly import the SQL files using the standard MySQL CLI:
 
 ```bash
-# Run migrations (creates eventsphere_db and all tables)
+# 1. Create the database
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS \`eventspear_local\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# 2. Import schema.sql
+mysql -u root -p eventspear_local < database/schema.sql
+
+# 3. Import seed.sql
+mysql -u root -p eventspear_local < database/seed.sql
+```
+
+### Option B: Node.js Automated Commands
+
+Alternatively, execute the project migration and seed runners:
+
+```bash
+# Run incremental migrations
 npm run migrate
-```
 
-Or from the workspace root:
-
-```bash
-npm --prefix backend run migrate
-```
-
-### B. Seeding Demonstration Data
-
-Populate the database with categories, demo users, sample events, and registrations:
-
-```bash
-# Run seeder
+# Run development seed script
 npm run seed
 ```
 
-Or from the workspace root:
-
-```bash
-npm --prefix backend run seed
-```
-
-The seeder is completely idempotent (`INSERT ... ON DUPLICATE KEY UPDATE`) and safe to re-run.
+*(Note: `npm run migrate` and `npm run seed` can also be run from the repository root or inside `backend/`).*
 
 ---
 
-## 5. Starting the Platform
+## 5. Development Accounts & Default Passwords
 
-### Running Backend & Frontend Together
-
-From the repository root:
-
-```bash
-# Start frontend
-npm run dev:frontend
-
-# Start backend (in another terminal)
-npm run dev:backend
+All 11 seeded development accounts use the unified local development password:
+```text
+EventSpearLocal!2026
 ```
 
-### Running the Backend Independently
-
-```bash
-cd backend
-npm install
-npm run dev     # Starts server with file watcher on port 5000
-# or
-npm start       # Production start command
-```
-
-The backend starts at `http://localhost:5000`.
-Health-check: `http://localhost:5000/api/health`.
-
-### Running the Frontend Independently
-
-```bash
-cd frontend
-npm install
-npm run dev     # Starts Vite dev server on http://localhost:5173
-```
-
----
-
-## 6. Seed Accounts for Evaluation
-
-| Role | Email | Password | Pre-seeded Permissions |
+### A. Attendees (5 Accounts)
+| Name | Email Address | Role | Profile Summary |
 |---|---|---|---|
-| **Attendee** | `attendee@eventsphere.demo` | `EventSphere123!` | Explore events, register for free events, view tickets, cancel bookings |
-| **Organizer** | `organizer@eventsphere.demo` | `EventSphere123!` | Create events, edit owned events, view attendees, export attendee CSV, analytics |
-| **Admin** | `admin@eventsphere.demo` | `EventSphere123!` | Manage platform users (suspend/activate), moderate events, manage categories |
+| Aarav Sharma | `attendee1@eventspear.local` | `attendee` | Software engineer keen on tech conferences & AI summits |
+| Diya Patel | `attendee2@eventspear.local` | `attendee` | UX designer passionate about typography & cultural events |
+| Rohan Mehta | `attendee3@eventspear.local` | `attendee` | Marathon runner, outdoor enthusiast, & tech meetups |
+| Ananya Iyer | `attendee4@eventspear.local` | `attendee` | Classical concert attendee & book reading club organizer |
+| Kabir Verma | `attendee5@eventspear.local` | `attendee` | Entrepreneur & venture community participant |
 
-*Tip: The top Demo Bar allows instant one-click switching between these roles while generating genuine backend sessions.*
+### B. Organizers (5 Accounts — 5 Events Owned Each)
+| Organization / Name | Email Address | Role | Specialization |
+|---|---|---|---|
+| TechNova Global Pvt Ltd | `organizer1@eventspear.local` | `organizer` | Cloud, AI, and developer summits |
+| CulturePulse Arts Foundation | `organizer2@eventspear.local` | `organizer` | Contemporary art galas, heritage walks & exhibitions |
+| SoundWave Live Entertainment | `organizer3@eventspear.local` | `organizer` | Acoustic gigs, indie festivals & live concerts |
+| Apex Sports Arena & Ventures | `organizer4@eventspear.local` | `organizer` | Marathons, morning yoga & fitness tournaments |
+| Inspire Learning Foundation | `organizer5@eventspear.local` | `organizer` | Executive speaking, design masterclasses & bootcamps |
 
----
-
-## 7. API Endpoint Summary
-
-### System Health
-- `GET /api/health` — Service uptime & database readiness check
-
-### Authentication (`/api/auth`)
-- `POST /api/auth/register` — Register Attendee or Organizer (admin registration forbidden)
-- `POST /api/auth/login` — Log in and set HTTP-only cookie
-- `POST /api/auth/logout` — Clear session cookie
-- `GET /api/auth/me` — Authenticated profile (protected)
-- `GET /api/auth/demo-accounts` — Demonstration account list
-
-### Public & Management Events (`/api/events`)
-- `GET /api/events` — Discover published events (supports search, category, city, date, sorting)
-- `GET /api/events/:id` — Event details by ID or slug (drafts hidden from public)
-- `POST /api/events` — Create event (Organizer & Admin only)
-- `PUT /api/events/:id` — Update event (owner only; capacity cannot drop below bookings)
-- `PATCH /api/events/:id/status` — Update event status (`published`, `draft`, `cancelled`)
-- `DELETE /api/events/:id` — Remove event (blocked if registrations exist)
-
-### Event Categories (`/api/categories`)
-- `GET /api/categories` — List active categories
-- `GET /api/categories/:slug` — Category details
-- `GET /api/categories/:slug/events` — Published events within category
-- `POST /api/categories` — Add category (Admin only)
-- `PUT /api/categories/:id` — Update category (Admin only)
-- `PATCH /api/categories/:id/toggle-active` — Toggle category status (Admin only)
-- `DELETE /api/categories/:id` — Delete category (Admin only, checks event references)
-
-### Registrations & Bookings (`/api/registrations`)
-- `POST /api/registrations/events/:id/register` — Register for free event (transaction lock, overbooking & duplicate check)
-- `GET /api/registrations/me` — Attendee booking history
-- `DELETE /api/registrations/:id` — Cancel registration (attendee self-service)
-
-### Organizer APIs (`/api/organizer`)
-- `GET /api/organizer/dashboard` — Live dashboard metrics (computed from database)
-- `GET /api/organizer/events` — Organizer's events
-- `GET /api/organizer/events/:id/attendees` — Attendee list for event
-
-### Admin APIs (`/api/admin`)
-- `GET /api/admin/dashboard` — Platform-wide statistics
-- `GET /api/admin/users` — User directory with role & status filters
-- `PATCH /api/admin/users/:id/status` — Toggle user suspension (self-suspension prevented)
-- `GET /api/admin/events` — All platform events
-- `PATCH /api/admin/events/:id/status` — Moderate event status
-
-### Notifications (`/api/notifications`)
-- `GET /api/notifications` — User notifications
-- `PATCH /api/notifications/:id/read` — Mark notification read
-- `POST /api/notifications/read-all` — Mark all notifications read
-
-### User Profile (`/api/users`)
-- `PUT /api/users/profile` — Update user profile
+### C. Administrator (1 Account)
+| Name | Email Address | Role | Scope |
+|---|---|---|---|
+| EventSpear Platform Admin | `admin@eventspear.local` | `admin` | System-wide moderation, user toggle, & platform metrics |
 
 ---
 
-## 8. Automated Testing
+## 6. Seeded Events Dataset (25 Events)
 
-The automated test suite runs via Vitest and Supertest across 17 test categories:
+The database seed provisions **exactly 25 events** with **5 events owned by each organizer**:
+- **5 Past Events**: Completed events with historical dates (`evt-org1-1`, `evt-org2-1`, `evt-org3-1`, `evt-org4-1`, `evt-org5-1`).
+- **3 Today's Events**: Live events scheduled for the current system date (`evt-org3-2`, `evt-org4-2`, `evt-org5-2`).
+- **17 Future Events**: Upcoming events distributed across upcoming weeks.
+
+---
+
+## 7. Authentication, Entry Flow & Session Handling
+
+### A. Application Entry Flow (`/` & `/home`)
+
+When opening the website, the application determines the starting page based on the actual authentication session verified through the backend (`/api/auth/me`):
+
+1. **Unauthenticated Visitor**:
+   - The loading spinner briefly displays during session resolution.
+   - Session check returns HTTP 401 (no valid cookie).
+   - Redirects to the **Sign-In Page** (`/login`).
+   - Does not render protected dashboards, user info, or false authorization errors.
+
+2. **Authenticated Attendee**:
+   - Session restored and user profile fetched from `/api/auth/me`.
+   - Opens the **Public Event Discovery Home Page** (`/`).
+   - Does **NOT** redirect the attendee automatically to My Dashboard.
+   - Preserves access to permitted attendee features (Browse events, register, view personal bookings, profile).
+
+3. **Authenticated Organizer**:
+   - Session restored from `/api/auth/me`.
+   - Automatically navigates to **Organizer Home** (`/organizer/events`).
+   - Preserves access to authorized organizer features.
+
+4. **Authenticated Administrator**:
+   - Session restored from `/api/auth/me`.
+   - Automatically navigates to **Admin Dashboard** (`/admin/dashboard`).
+   - Preserves access to authorized administrator features.
+
+### B. Route Protection & Authorization
+
+- **Frontend Route Protection (`ProtectedRoute.jsx`)**:
+  - Unauthenticated access to protected routes (`/attendee/*`, `/organizer/*`, `/admin/*`, `/notifications`, `/settings`, `/events/:id/register`) redirects to `/login?redirect=...`.
+  - Attendees attempting to access organizer or admin routes receive an explicit `403 Access Forbidden` screen with a return link to their home page.
+  - After logging in, `isRouteAllowedForRole` validates whether the intended destination is permitted for the authenticated role. If forbidden, the user is safely sent to their role home page instead of getting trapped in a 403 error.
+- **Backend API Protection (`authenticate.js` & `authorize.js`)**:
+  - Independent server-side enforcement: missing or invalid session cookie/token returns `401 Unauthorized`.
+  - Insufficient role permission returns `403 Forbidden`.
+
+### C. Logout Behavior from Every Page
+
+Logout is accessible from every authenticated page via:
+- Public header (`Navbar.jsx`) for attendee pages.
+- Dashboard topbar (`Topbar.jsx`) and sidebar (`Sidebar.jsx`) for dashboard pages.
+
+When clicking **Logout**:
+1. Frontend dispatches `POST /api/auth/logout` to the backend.
+2. Backend clears the HTTP-only cookie using matching options (`httpOnly`, `secure`, `sameSite: lax`, `path: '/'`).
+3. Local cached data (`eventsphere_auth_user`, `eventsphere_bookings`, `eventsphere_notifications`, `sessionStorage`) is purged.
+4. `AuthContext` state is reset (`user = null`, `authStatus = 'unauthenticated'`).
+5. A confirmation toast message (*"You have been logged out successfully."*) is displayed.
+6. The user is redirected to `/login` using `replace: true`, preventing browser Back button access.
+
+---
+
+## 8. Safe SQL Evolution Workflow
+
+To keep editable `.sql` files and your live MySQL database consistent:
+
+1. **Create an incremental migration**:
+   Add a new versioned file in `database/migrations/`, e.g. `database/migrations/002_add_event_tags.sql`.
+2. **Review the migration**:
+   Ensure non-destructive SQL (`ALTER TABLE ... ADD COLUMN ...`).
+3. **Back up the database**:
+   ```bash
+   mysqldump -u root -p eventspear_local > database/backup_$(date +%Y%m%d).sql
+   ```
+4. **Execute migration against local database**:
+   ```bash
+   npm run migrate
+   ```
+5. **Update cumulative `database/schema.sql`**:
+   Keep `database/schema.sql` up to date with the latest table structures.
+6. **Update application code & run tests**:
+   ```bash
+   npm test
+   npm run build
+   ```
+
+### Backup & Restore Instructions
 
 ```bash
-# Run backend tests
-cd backend
+# Backup database
+mysqldump -u root -p --single-transaction --quick eventspear_local > database/backup.sql
+
+# Restore database
+mysql -u root -p -e "CREATE DATABASE IF NOT EXISTS \`eventspear_local\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u root -p eventspear_local < database/backup.sql
+```
+
+---
+
+## 9. Application Startup Commands
+
+### Run Everything Concurrently
+
+```bash
+# Terminal 1: Backend API (port 5000)
+npm run dev:backend
+
+# Terminal 2: Frontend Client (port 5173)
+npm run dev:frontend
+```
+
+Open your browser at `http://localhost:5173`.
+
+---
+
+## 10. Automated Testing
+
+Run the complete test suite (44 automated tests across API, auth lifecycle, and database verification):
+
+```bash
+# Run backend vitest suite
 npm test
 
-# Or from workspace root
-npm run test:backend
-```
+# Run frontend production build validation
+npm run build
 
-### Test Coverage Checklist (17 Scenarios Verified)
-1. ✅ `GET /api/health` returns 200 with service and DB status
-2. ✅ `POST /api/auth/register` creates attendee without leaking password hash
-3. ✅ `POST /api/auth/register` rejects duplicate email with 409 Conflict
-4. ✅ `POST /api/auth/login` validates credentials and sets session
-5. ✅ `POST /api/auth/login` rejects wrong password with 401 Unauthorized
-6. ✅ `GET /api/auth/me` rejects unauthenticated callers with 401
-7. ✅ Attendees are prohibited from creating events (403 Forbidden)
-8. ✅ Organizers can create events
-9. ✅ Organizers cannot edit events owned by others
-10. ✅ `GET /api/events` supports filtering and pagination
-11. ✅ Duplicate bookings by the same attendee are rejected
-12. ✅ Capacity exhaustion prevents overbooking
-13. ✅ Cancelled events reject registrations
-14. ✅ Attendees can cancel their own bookings
-15. ✅ Admin dashboard and moderation protected from non-admins
-16. ✅ Request body schema validation rejects invalid data (400 Bad Request)
-17. ✅ Centralized error handling returns clean JSON without stack traces
-
----
-
-## 9. Frontend Build & Quality Checks
-
-```bash
-cd frontend
-npm run build    # Validates production compilation
-npm run lint     # Oxlint static analysis
+# Run frontend linting
+npm run lint:frontend
 ```
 
 ---
 
-## 10. Troubleshooting
+## 11. API Endpoints Reference
 
-| Issue | Cause | Solution |
-|---|---|---|
-| `Access denied for user 'root'@'localhost'` | MySQL password mismatch | Enter your local MySQL password in `backend/.env` under `DB_PASSWORD`. |
-| `Cannot connect to MySQL server` | MySQL server not running | Start MySQL service via `brew services start mysql` or macOS System Settings. |
-| `CORS Error in Browser` | Origin mismatch | Ensure `FRONTEND_URL=http://localhost:5173` matches the frontend port in `backend/.env`. |
-| `sh: vite: command not found` | Dependencies not installed | Run `npm install` inside the `frontend/` folder. |
+### Authentication (`/api/auth`)
+- `POST /api/auth/login` — Authenticate credentials with role validation & set HTTP-only cookie
+- `POST /api/auth/register` — Register Attendee or Organizer
+- `POST /api/auth/logout` — Clear authentication cookie and invalidate session
+- `GET /api/auth/me` — Return authenticated user profile (401 if unauthenticated)
+- `GET /api/auth/demo-accounts` — Return sample development account emails
+
+### Events (`/api/events`)
+- `GET /api/events` — List published events with search, category, city, and date filters
+- `GET /api/events/:id` — Get single event by ID or slug
+- `POST /api/events` — Create event (Organizer & Admin only)
+- `PUT /api/events/:id` — Update event (Owner only)
+- `PATCH /api/events/:id/status` — Update event status (Draft, Published, Cancelled)
+- `DELETE /api/events/:id` — Delete event
+
+### Registrations (`/api/registrations`)
+- `POST /api/registrations/events/:id/register` — Register for event with concurrency lock
+- `GET /api/registrations/me` — List current attendee's registrations
+- `DELETE /api/registrations/:id` — Cancel registration
+
+### Organizer (`/api/organizer`)
+- `GET /api/organizer/dashboard` — Live organizer metrics from MySQL
+- `GET /api/organizer/events` — List events owned by authenticated organizer
+- `GET /api/organizer/events/:id/attendees` — List registered attendees for organizer's event
+
+### Admin (`/api/admin`)
+- `GET /api/admin/dashboard` — System-wide metrics (users, events, date distribution, bookings)
+- `GET /api/admin/users` — List all platform users with role filters
+- `PATCH /api/admin/users/:id/status` — Toggle user status (`active` / `suspended`)
+- `GET /api/admin/events` — List all events for platform moderation

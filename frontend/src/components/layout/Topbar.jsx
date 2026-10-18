@@ -10,12 +10,15 @@ import {
   LogOut,
   Settings,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  ArrowLeft
 } from 'lucide-react';
 import { notificationService } from '../../services/notificationService';
+import { useToast } from '../../context/ToastContext';
 
 export const Topbar = ({ onToggleSidebar, title = 'Dashboard' }) => {
   const { user, logout, isOrganizer } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -32,13 +35,28 @@ export const Topbar = ({ onToggleSidebar, title = 'Dashboard' }) => {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    showToast('You have been logged out successfully.', 'info');
+    navigate('/login', { replace: true });
+  };
+
+  const handleBackNavigation = () => {
+    if (window.history.length > 2) {
+      navigate(-1);
+    } else {
+      if (user?.role === 'organizer') {
+        navigate('/organizer/events');
+      } else if (user?.role === 'admin') {
+        navigate('/admin/dashboard');
+      } else {
+        navigate('/');
+      }
+    }
   };
 
   return (
     <header className="dashboard-topbar">
-      {/* Left: Mobile hamburger + Title */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+      {/* Left: Mobile hamburger + Back Arrow + Title */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
         <button
           onClick={onToggleSidebar}
           className="btn-ghost"
@@ -47,6 +65,30 @@ export const Topbar = ({ onToggleSidebar, title = 'Dashboard' }) => {
           aria-label="Toggle Navigation"
         >
           <Menu size={20} />
+        </button>
+
+        <button
+          type="button"
+          onClick={handleBackNavigation}
+          className="btn-secondary"
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: 10,
+            padding: 0,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: '#FFFFFF',
+            border: '1px solid var(--border-subtle)',
+            color: 'var(--text-main)',
+            boxShadow: 'var(--shadow-sm)',
+            cursor: 'pointer'
+          }}
+          title="Back to previous page"
+          aria-label="Back to previous page"
+        >
+          <ArrowLeft size={18} aria-hidden="true" />
         </button>
 
         <div>

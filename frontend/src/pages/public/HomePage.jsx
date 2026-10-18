@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { eventService } from '../../services/eventService';
 import { categoryService } from '../../services/categoryService';
 import { EventCard } from '../../components/events/EventCard';
@@ -12,15 +13,24 @@ import {
   Compass,
   Users,
   CheckCircle,
-  PlusCircle
+  PlusCircle,
+  Ticket
 } from 'lucide-react';
 
 export const HomePage = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
 
   const categories = categoryService.getActiveCategories();
-  const allEvents = eventService.getPublicEvents();
+  const [allEvents, setAllEvents] = useState(() => eventService.getPublicEvents());
+
+  React.useEffect(() => {
+    eventService.syncFromBackend().then(() => {
+      setAllEvents(eventService.getPublicEvents());
+    });
+  }, []);
+
   const featuredEvents = allEvents.filter(e => e.featured).slice(0, 4);
   const upcomingEvents = allEvents.slice(0, 6);
 
@@ -310,41 +320,156 @@ export const HomePage = () => {
             Publish your event in minutes, track attendee registrations, monitor capacity in real-time,
             and export detailed rosters with EventSphere.
           </p>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: 14 }}>
-            <Link
-              to="/organizer/events/new"
-              style={{
-                background: '#FFFFFF',
-                color: 'var(--dark-purple)',
-                padding: '12px 28px',
-                borderRadius: 9999,
-                fontWeight: 700,
-                fontSize: '0.95rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                boxShadow: '0 4px 18px rgba(0,0,0,0.2)'
-              }}
-            >
-              <PlusCircle size={18} /> Publish an Event
-            </Link>
-            <Link
-              to="/organizer/dashboard"
-              style={{
-                background: 'rgba(255, 255, 255, 0.15)',
-                color: '#FFFFFF',
-                padding: '12px 24px',
-                borderRadius: 9999,
-                fontWeight: 600,
-                fontSize: '0.95rem',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
-                border: '1px solid rgba(255, 255, 255, 0.3)'
-              }}
-            >
-              View Organizer Portal
-            </Link>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: 14, flexWrap: 'wrap' }}>
+            {user?.role === 'organizer' ? (
+              <>
+                <Link
+                  to="/organizer/events/new"
+                  style={{
+                    background: '#FFFFFF',
+                    color: 'var(--dark-purple)',
+                    padding: '12px 28px',
+                    borderRadius: 9999,
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 18px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  <PlusCircle size={18} /> Publish an Event
+                </Link>
+                <Link
+                  to="/organizer/dashboard"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    color: '#FFFFFF',
+                    padding: '12px 24px',
+                    borderRadius: 9999,
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    border: '1px solid rgba(255, 255, 255, 0.3)'
+                  }}
+                >
+                  Organizer Dashboard
+                </Link>
+              </>
+            ) : user?.role === 'admin' ? (
+              <>
+                <Link
+                  to="/admin/events"
+                  style={{
+                    background: '#FFFFFF',
+                    color: 'var(--dark-purple)',
+                    padding: '12px 28px',
+                    borderRadius: 9999,
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 18px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  Manage Events
+                </Link>
+                <Link
+                  to="/admin/dashboard"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    color: '#FFFFFF',
+                    padding: '12px 24px',
+                    borderRadius: 9999,
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    border: '1px solid rgba(255, 255, 255, 0.3)'
+                  }}
+                >
+                  Admin Dashboard
+                </Link>
+              </>
+            ) : user?.role === 'attendee' ? (
+              <>
+                <Link
+                  to="/events"
+                  style={{
+                    background: '#FFFFFF',
+                    color: 'var(--dark-purple)',
+                    padding: '12px 28px',
+                    borderRadius: 9999,
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 18px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  <Compass size={18} /> Explore All Events
+                </Link>
+                <Link
+                  to="/attendee/bookings"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    color: '#FFFFFF',
+                    padding: '12px 24px',
+                    borderRadius: 9999,
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    border: '1px solid rgba(255, 255, 255, 0.3)'
+                  }}
+                >
+                  <Ticket size={18} /> My Registrations
+                </Link>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/events"
+                  style={{
+                    background: '#FFFFFF',
+                    color: 'var(--dark-purple)',
+                    padding: '12px 28px',
+                    borderRadius: 9999,
+                    fontWeight: 700,
+                    fontSize: '0.95rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    boxShadow: '0 4px 18px rgba(0,0,0,0.2)'
+                  }}
+                >
+                  <Compass size={18} /> Explore Events
+                </Link>
+                <Link
+                  to="/login"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.15)',
+                    color: '#FFFFFF',
+                    padding: '12px 24px',
+                    borderRadius: 9999,
+                    fontWeight: 600,
+                    fontSize: '0.95rem',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    border: '1px solid rgba(255, 255, 255, 0.3)'
+                  }}
+                >
+                  Sign In to EventSpear
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </section>

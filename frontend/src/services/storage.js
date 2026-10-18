@@ -29,11 +29,6 @@ export const initStorage = () => {
   if (!localStorage.getItem(STORAGE_KEYS.NOTIFICATIONS)) {
     localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(seedNotifications));
   }
-  if (!localStorage.getItem(STORAGE_KEYS.CURRENT_USER)) {
-    // Default logged in user is Organizer for the rich dashboard experience
-    const defaultUser = seedUsers.find(u => u.role === 'organizer');
-    localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(defaultUser));
-  }
 };
 
 export const resetAllDemoData = () => {
@@ -42,8 +37,7 @@ export const resetAllDemoData = () => {
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(seedUsers));
   localStorage.setItem(STORAGE_KEYS.BOOKINGS, JSON.stringify(seedBookings));
   localStorage.setItem(STORAGE_KEYS.NOTIFICATIONS, JSON.stringify(seedNotifications));
-  const defaultUser = seedUsers.find(u => u.role === 'organizer');
-  localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(defaultUser));
+  localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
 };
 
 export const getItem = (key, fallback = []) => {

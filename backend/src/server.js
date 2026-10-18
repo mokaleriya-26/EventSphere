@@ -2,6 +2,7 @@ import app from './app.js';
 import { env } from './config/env.js';
 import { checkDatabaseReadiness } from './config/database.js';
 
+// Server listener
 const PORT = env.PORT || 5000;
 
 const server = app.listen(PORT, async () => {

@@ -61,7 +61,9 @@ export async function runMigrations() {
     const [appliedRows] = await dbConn.query('SELECT name FROM _migrations;');
     const appliedSet = new Set(appliedRows.map(r => r.name));
 
-    const migrationsDir = path.resolve(__dirname, '../../migrations');
+    const rootMigrationsDir = path.resolve(__dirname, '../../../database/migrations');
+    const backendMigrationsDir = path.resolve(__dirname, '../../migrations');
+    const migrationsDir = fs.existsSync(rootMigrationsDir) ? rootMigrationsDir : backendMigrationsDir;
     const files = fs.readdirSync(migrationsDir).filter(f => f.endsWith('.sql')).sort();
 
     let newMigrationsCount = 0;

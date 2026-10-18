@@ -56,7 +56,7 @@ export const registerUser = async ({ name, email, password, role = 'attendee', o
   return { user, token };
 };
 
-export const loginUser = async (email, password) => {
+export const loginUser = async (email, password, expectedRole = null) => {
   const normalizedEmail = email.toLowerCase().trim();
 
   const rows = await query('SELECT * FROM users WHERE email = ? LIMIT 1', [normalizedEmail]);
@@ -75,6 +75,19 @@ export const loginUser = async (email, password) => {
     throw new AppError('Invalid email or password.', 401);
   }
 
+  if (expectedRole && userRecord.role !== expectedRole) {
+    const roleLabels = {
+      attendee: 'User / Attendee',
+      organizer: 'Organizer',
+      admin: 'Administrator'
+    };
+    const actualLabel = roleLabels[userRecord.role] || userRecord.role;
+    throw new AppError(
+      `Role category mismatch: This account is registered as ${actualLabel}. Please select the ${actualLabel} category above to sign in.`,
+      403
+    );
+  }
+
   const user = sanitizeUser(userRecord);
   const token = createToken(user);
 
@@ -91,7 +104,10 @@ export const getDemoAccounts = async () => {
   const rows = await query(
     `SELECT id, name, email, role, organization, avatar, city, bio, account_status
      FROM users
-     WHERE email IN ('attendee@eventsphere.demo', 'organizer@eventsphere.demo', 'admin@eventsphere.demo')`
+     WHERE email IN (
+       'attendee1@eventspear.local', 'organizer1@eventspear.local', 'admin@eventspear.local',
+       'attendee@eventsphere.demo', 'organizer@eventsphere.demo', 'admin@eventsphere.demo'
+     )`
   );
 
   return {

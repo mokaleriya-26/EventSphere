@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
+import { Loader2 } from 'lucide-react';
 
 // Layouts
 import { PublicLayout } from './components/layout/PublicLayout';
@@ -40,18 +41,108 @@ import { NotificationsPage } from './pages/utility/NotificationsPage';
 import { SettingsPage } from './pages/utility/SettingsPage';
 import { NotFoundPage } from './pages/utility/NotFoundPage';
 
+// Route Guards
+import { ProtectedRoute } from './components/common/ProtectedRoute';
+
+/**
+ * Phase 2 & 3 Entry Flow:
+ * When opening EventSpear (root /), show the Login Page first if not authenticated.
+ * If authenticated, redirect each account to its specific home:
+ * - Attendee -> public event discovery home page
+ * - Organizer -> organizer home (/organizer/events)
+ * - Admin -> administrator home (/admin/dashboard)
+ */
+function EntryFlow() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: '60vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12
+        }}
+      >
+        <Loader2 className="animate-spin" size={32} color="var(--primary-purple)" />
+        <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>Loading EventSpear...</span>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (user.role === 'organizer') {
+    return <Navigate to="/organizer/events" replace />;
+  }
+
+  if (user.role === 'admin') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+
+  // Attendee gets regular event discovery experience
+  return <HomePage />;
+}
+
+function DashboardRedirect() {
+  const { user, loading } = useAuth();
+  if (loading) {
+    return (
+      <div
+        style={{
+          minHeight: '60vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 12
+        }}
+      >
+        <Loader2 className="animate-spin" size={32} color="var(--primary-purple)" />
+        <span style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>Opening your dashboard...</span>
+      </div>
+    );
+  }
+  if (!user) {
+    return <Navigate to="/login?redirect=/dashboard" replace />;
+  }
+  if (user.role === 'organizer') {
+    return <Navigate to="/organizer/dashboard" replace />;
+  }
+  if (user.role === 'admin') {
+    return <Navigate to="/admin/dashboard" replace />;
+  }
+  return <Navigate to="/attendee/dashboard" replace />;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
         <BrowserRouter>
           <Routes>
+            {/* Role-adaptive Dashboard Route */}
+            <Route path="/dashboard" element={<DashboardRedirect />} />
+
             {/* Public Layout Routes */}
             <Route element={<PublicLayout />}>
-              <Route path="/" element={<HomePage />} />
+              <Route path="/" element={<EntryFlow />} />
+              <Route path="/home" element={<EntryFlow />} />
               <Route path="/events" element={<EventsPage />} />
               <Route path="/events/:eventId" element={<EventDetailsPage />} />
-              <Route path="/events/:eventId/register" element={<EventRegisterPage />} />
+              <Route
+                path="/events/:eventId/register"
+                element={
+                  <ProtectedRoute allowedRoles={['attendee', 'organizer', 'admin']}>
+                    <EventRegisterPage />
+                  </ProtectedRoute>
+                }
+              />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/categories/:slug" element={<CategoryDetailsPage />} />
               <Route path="/login" element={<LoginPage />} />
@@ -60,7 +151,14 @@ export default function App() {
 
             {/* Dashboard Layout Routes */}
             {/* Organizer Section */}
-            <Route path="/organizer" element={<DashboardLayout title="Events" />}>
+            <Route
+              path="/organizer"
+              element={
+                <ProtectedRoute allowedRoles={['organizer', 'admin']}>
+                  <DashboardLayout title="Events" />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<Navigate to="/organizer/events" replace />} />
               <Route path="dashboard" element={<OrganizerDashboard />} />
               <Route path="events" element={<OrganizerEvents />} />
@@ -71,7 +169,14 @@ export default function App() {
             </Route>
 
             {/* Attendee Section */}
-            <Route path="/attendee" element={<DashboardLayout title="My Activity" />}>
+            <Route
+              path="/attendee"
+              element={
+                <ProtectedRoute allowedRoles={['attendee', 'admin']}>
+                  <DashboardLayout title="My Activity" />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<Navigate to="/attendee/dashboard" replace />} />
               <Route path="dashboard" element={<AttendeeDashboard />} />
               <Route path="bookings" element={<AttendeeBookings />} />
@@ -79,7 +184,14 @@ export default function App() {
             </Route>
 
             {/* Admin Section */}
-            <Route path="/admin" element={<DashboardLayout title="Administration" />}>
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <DashboardLayout title="Administration" />
+                </ProtectedRoute>
+              }
+            >
               <Route index element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="dashboard" element={<AdminDashboard />} />
               <Route path="events" element={<AdminEvents />} />
@@ -88,7 +200,13 @@ export default function App() {
             </Route>
 
             {/* Shared Utility inside Dashboard */}
-            <Route element={<DashboardLayout title="EventSphere" />}>
+            <Route
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout title="EventSpear" />
+                </ProtectedRoute>
+              }
+            >
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
             </Route>

@@ -3,22 +3,57 @@ import { AppError } from '../middleware/errorHandler.js';
 import { formatEvent } from './event.service.js';
 
 export const getAdminStats = async () => {
-  const [usersCount] = await query('SELECT COUNT(*) as total, SUM(CASE WHEN role = "organizer" THEN 1 ELSE 0 END) as organizers, SUM(CASE WHEN role = "attendee" THEN 1 ELSE 0 END) as attendees FROM users');
-  const [eventsCount] = await query('SELECT COUNT(*) as total, SUM(CASE WHEN status = "published" THEN 1 ELSE 0 END) as published, SUM(CASE WHEN status = "draft" THEN 1 ELSE 0 END) as draft, SUM(CASE WHEN status = "cancelled" THEN 1 ELSE 0 END) as cancelled FROM events');
+  const [usersCount] = await query('SELECT COUNT(*) as total, SUM(CASE WHEN role = "organizer" THEN 1 ELSE 0 END) as organizers, SUM(CASE WHEN role = "attendee" THEN 1 ELSE 0 END) as attendees, SUM(CASE WHEN role = "admin" THEN 1 ELSE 0 END) as admins FROM users');
+  const [eventsCount] = await query(`
+    SELECT 
+      COUNT(*) as total,
+      SUM(CASE WHEN status = "published" THEN 1 ELSE 0 END) as published,
+      SUM(CASE WHEN status = "draft" THEN 1 ELSE 0 END) as draft,
+      SUM(CASE WHEN status = "cancelled" THEN 1 ELSE 0 END) as cancelled,
+      SUM(CASE WHEN status = "past" THEN 1 ELSE 0 END) as past,
+      SUM(CASE WHEN DATE(start_datetime) = CURRENT_DATE() THEN 1 ELSE 0 END) as today,
+      SUM(CASE WHEN DATE(start_datetime) > CURRENT_DATE() THEN 1 ELSE 0 END) as future
+    FROM events
+  `);
   const [bookingsCount] = await query('SELECT COUNT(*) as total, SUM(CASE WHEN status = "confirmed" THEN 1 ELSE 0 END) as confirmed FROM registrations');
   const [categoriesCount] = await query('SELECT COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active FROM categories');
+
+  const recentEvents = await query(`
+    SELECT e.id, e.title, e.status, e.capacity, e.created_at as createdAt,
+           u.name as organizerName, u.organization as organizationName,
+           (SELECT COUNT(*) FROM registrations r WHERE r.event_id = e.id AND r.status = 'confirmed') as registeredCount
+    FROM events e
+    JOIN users u ON e.organizer_id = u.id
+    ORDER BY e.created_at DESC
+    LIMIT 6
+  `);
+
+  const recentRegistrations = await query(`
+    SELECT r.id, r.booking_reference as bookingRef, r.status, r.registered_at as registeredAt,
+           u.name as attendeeName, u.email as attendeeEmail,
+           e.title as eventTitle
+    FROM registrations r
+    JOIN users u ON r.attendee_id = u.id
+    JOIN events e ON r.event_id = e.id
+    ORDER BY r.registered_at DESC
+    LIMIT 6
+  `);
 
   return {
     users: {
       total: Number(usersCount?.total || 0),
       organizers: Number(usersCount?.organizers || 0),
-      attendees: Number(usersCount?.attendees || 0)
+      attendees: Number(usersCount?.attendees || 0),
+      admins: Number(usersCount?.admins || 0)
     },
     events: {
       total: Number(eventsCount?.total || 0),
       published: Number(eventsCount?.published || 0),
       draft: Number(eventsCount?.draft || 0),
-      cancelled: Number(eventsCount?.cancelled || 0)
+      cancelled: Number(eventsCount?.cancelled || 0),
+      past: Number(eventsCount?.past || 0),
+      today: Number(eventsCount?.today || 0),
+      future: Number(eventsCount?.future || 0)
     },
     bookings: {
       total: Number(bookingsCount?.total || 0),
@@ -27,7 +62,9 @@ export const getAdminStats = async () => {
     categories: {
       total: Number(categoriesCount?.total || 0),
       active: Number(categoriesCount?.active || 0)
-    }
+    },
+    recentEvents,
+    recentRegistrations
   };
 };
 

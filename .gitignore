@@ -30,3 +30,7 @@ dist-ssr
 # Test and coverage
 coverage/
 *.sw?
+
+# Database backups
+database/backups/
+

@@ -32,7 +32,7 @@ vi.mock('../src/config/database.js', () => {
       }
       if (lower.includes('from users where id =')) {
         const id = params[0];
-        return mockDb.users.filter(u => u.id === id);
+        return mockDb.users.filter(u => u.id === id).map(({ password_hash, ...rest }) => rest);
       }
       if (lower.includes('insert into users')) {
         // [id, name, email, password_hash, role, organization, avatar, city, bio, account_status]
@@ -282,8 +282,60 @@ describe('EventSphere Full-Stack Backend API Tests', () => {
         password_hash: await bcrypt.hash('Password123!', 10),
         role: 'admin',
         account_status: 'active'
+      },
+      {
+        id: 'usr-demo-attendee',
+        name: 'Demo Attendee',
+        email: 'demo.attendee@eventspear.local',
+        password_hash: await bcrypt.hash('EventSpearDemo!2026', 10),
+        role: 'attendee',
+        account_status: 'active'
+      },
+      {
+        id: 'usr-demo-organizer',
+        name: 'Demo Organizer',
+        email: 'demo.organizer@eventspear.local',
+        password_hash: await bcrypt.hash('EventSpearDemo!2026', 10),
+        role: 'organizer',
+        account_status: 'active'
+      },
+      {
+        id: 'usr-demo-admin',
+        name: 'Demo Admin',
+        email: 'demo.admin@eventspear.local',
+        password_hash: await bcrypt.hash('EventSpearDemo!2026', 10),
+        role: 'admin',
+        account_status: 'active'
       }
     ];
+
+    const localHash = await bcrypt.hash('EventSpearLocal!2026', 10);
+    for (let i = 1; i <= 5; i++) {
+      mockDb.users.push({
+        id: `usr-att-${i}`,
+        name: `Attendee ${i}`,
+        email: `attendee${i}@eventspear.local`,
+        password_hash: localHash,
+        role: 'attendee',
+        account_status: 'active'
+      });
+      mockDb.users.push({
+        id: `usr-org-${i}`,
+        name: `Organizer ${i}`,
+        email: `organizer${i}@eventspear.local`,
+        password_hash: localHash,
+        role: 'organizer',
+        account_status: 'active'
+      });
+    }
+    mockDb.users.push({
+      id: 'usr-admin-1',
+      name: 'Platform Administrator',
+      email: 'admin@eventspear.local',
+      password_hash: localHash,
+      role: 'admin',
+      account_status: 'active'
+    });
 
     mockDb.categories = [
       {
@@ -602,4 +654,149 @@ describe('EventSphere Full-Stack Backend API Tests', () => {
     expect(res.body.success).toBe(false);
     expect(res.body.error).toMatch(/Endpoint not found/i);
   });
+
+  // 18. EventSpear Demonstration Accounts Authentication
+  it('18. Authenticates all three development demo accounts with EventSpearDemo!2026', async () => {
+    // Attendee
+    const attRes = await request(app).post('/api/auth/login').send({
+      email: 'demo.attendee@eventspear.local',
+      password: 'EventSpearDemo!2026'
+    });
+    expect(attRes.status).toBe(200);
+    expect(attRes.body.success).toBe(true);
+    expect(attRes.body.user.role).toBe('attendee');
+    expect(attRes.body.token).toBeDefined();
+
+    // Organizer
+    const orgRes = await request(app).post('/api/auth/login').send({
+      email: 'demo.organizer@eventspear.local',
+      password: 'EventSpearDemo!2026'
+    });
+    expect(orgRes.status).toBe(200);
+    expect(orgRes.body.success).toBe(true);
+    expect(orgRes.body.user.role).toBe('organizer');
+
+    // Admin
+    const admRes = await request(app).post('/api/auth/login').send({
+      email: 'demo.admin@eventspear.local',
+      password: 'EventSpearDemo!2026'
+    });
+    expect(admRes.status).toBe(200);
+    expect(admRes.body.success).toBe(true);
+    expect(admRes.body.user.role).toBe('admin');
+  });
+
+  // 19. Unknown Email Rejection
+  it('19. POST /api/auth/login rejects unknown email with 401', async () => {
+    const res = await request(app).post('/api/auth/login').send({
+      email: 'nonexistent.user@example.com',
+      password: 'AnyPassword123!'
+    });
+    expect(res.status).toBe(401);
+    expect(res.body.success).toBe(false);
+  });
+
+  // 20. Missing Login Fields Validation
+  it('20. POST /api/auth/login validates missing email and password with 400', async () => {
+    const res = await request(app).post('/api/auth/login').send({});
+    expect(res.status).toBe(400);
+    expect(res.body.success).toBe(false);
+  });
+
+  // 21. Logout clears session / cookie
+  it('21. POST /api/auth/logout successfully clears authentication state', async () => {
+    const res = await request(app).post('/api/auth/logout');
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  // 22. Current-User /api/auth/me returns profile for authenticated user
+  it('22. GET /api/auth/me returns user profile when valid Bearer token provided', async () => {
+    const res = await request(app)
+      .get('/api/auth/me')
+      .set('Authorization', `Bearer ${attendeeToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.user.email).toBe('attendee@eventsphere.demo');
+    expect(res.body.user.password_hash).toBeUndefined();
+  });
+
+  // 23. Expected role matches category
+  it('23. POST /api/auth/login with expectedRole matching role returns 200', async () => {
+    const res = await request(app).post('/api/auth/login').send({
+      email: 'attendee1@eventspear.local',
+      password: 'EventSpearLocal!2026',
+      expectedRole: 'attendee'
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.user.role).toBe('attendee');
+  });
+
+  // 24. Expected role category mismatch returns 403
+  it('24. POST /api/auth/login with expectedRole mismatch returns 403 with category prompt', async () => {
+    const res = await request(app).post('/api/auth/login').send({
+      email: 'attendee1@eventspear.local',
+      password: 'EventSpearLocal!2026',
+      expectedRole: 'organizer'
+    });
+    expect(res.status).toBe(403);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toMatch(/Role category mismatch/i);
+    expect(res.body.error).toMatch(/User \/ Attendee/i);
+  });
+
+  // 25. All 11 seeded accounts authenticate successfully
+  it('25. Authenticates all 11 local seeded accounts with EventSpearLocal!2026', async () => {
+    // 5 attendees
+    for (let i = 1; i <= 5; i++) {
+      const res = await request(app).post('/api/auth/login').send({
+        email: `attendee${i}@eventspear.local`,
+        password: 'EventSpearLocal!2026',
+        expectedRole: 'attendee'
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.user.role).toBe('attendee');
+    }
+
+    // 5 organizers
+    for (let i = 1; i <= 5; i++) {
+      const res = await request(app).post('/api/auth/login').send({
+        email: `organizer${i}@eventspear.local`,
+        password: 'EventSpearLocal!2026',
+        expectedRole: 'organizer'
+      });
+      expect(res.status).toBe(200);
+      expect(res.body.user.role).toBe('organizer');
+    }
+
+    // 1 admin
+    const res = await request(app).post('/api/auth/login').send({
+      email: 'admin@eventspear.local',
+      password: 'EventSpearLocal!2026',
+      expectedRole: 'admin'
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.user.role).toBe('admin');
+  });
+
+  // 26. Role access control: Attendee and Organizer cannot access admin dashboard
+  it('26. Forbids non-admin users from accessing /api/admin/dashboard', async () => {
+    const attRes = await request(app)
+      .get('/api/admin/dashboard')
+      .set('Authorization', `Bearer ${attendeeToken}`);
+    expect(attRes.status).toBe(403);
+
+    const orgRes = await request(app)
+      .get('/api/admin/dashboard')
+      .set('Authorization', `Bearer ${organizerToken}`);
+    expect(orgRes.status).toBe(403);
+  });
+
+  // 27. Role access control: Unauthenticated requests rejected
+  it('27. Rejects unauthenticated requests to protected endpoints with 401', async () => {
+    const res = await request(app).get('/api/admin/dashboard');
+    expect(res.status).toBe(401);
+  });
 });
+

@@ -17,11 +17,33 @@ import {
   Ticket
 } from 'lucide-react';
 
+import { apiClient } from '../../services/apiClient';
+
 export const OrganizerDashboard = () => {
   const { user } = useAuth();
   const organizerId = user?.id || 'usr-organizer';
 
-  const myEvents = eventService.getOrganizerEvents(organizerId);
+  const [myEvents, setMyEvents] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    apiClient.get('/organizer/events')
+      .then(res => {
+        if (isMounted && res?.events) {
+          setMyEvents(res.events);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setMyEvents(eventService.getOrganizerEventsSync(organizerId));
+        }
+      })
+      .finally(() => {
+        if (isMounted) setLoading(false);
+      });
+    return () => { isMounted = false; };
+  }, [organizerId]);
 
   // Dynamically calculate metrics
   const stats = useMemo(() => {

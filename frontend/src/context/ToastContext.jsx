@@ -33,6 +33,9 @@ export const ToastProvider = ({ children }) => {
           gap: 10,
           pointerEvents: 'none'
         }}
+        aria-live="polite"
+        aria-label="Notifications"
+        role="status"
       >
         {toasts.map(toast => {
           let bg = '#10B981';
@@ -83,8 +86,10 @@ export const ToastProvider = ({ children }) => {
               <button
                 onClick={() => removeToast(toast.id)}
                 style={{ color: '#9CA3AF', padding: 4, display: 'flex' }}
+                aria-label="Dismiss notification"
+                type="button"
               >
-                <X size={16} />
+                <X size={16} aria-hidden="true" />
               </button>
             </div>
           );

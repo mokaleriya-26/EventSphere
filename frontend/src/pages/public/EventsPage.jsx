@@ -22,6 +22,14 @@ export const EventsPage = () => {
 
   const categories = categoryService.getActiveCategories();
 
+  const [allEvents, setAllEvents] = useState(() => eventService.getAllEvents());
+
+  React.useEffect(() => {
+    eventService.syncFromBackend().then((evts) => {
+      setAllEvents(evts || []);
+    });
+  }, []);
+
   // Compute filtered events
   const filteredEvents = useMemo(() => {
     return eventService.searchEvents({
@@ -32,10 +40,9 @@ export const EventsPage = () => {
       city: selectedCity,
       sort: sortBy
     }).filter(e => e.status === 'published');
-  }, [query, selectedCategory, selectedPrice, selectedDate, selectedCity, sortBy]);
+  }, [allEvents, query, selectedCategory, selectedPrice, selectedDate, selectedCity, sortBy]);
 
   // Unique cities from events
-  const allEvents = eventService.getAllEvents();
   const cities = Array.from(new Set(allEvents.map(e => e.city).filter(Boolean)));
 
   const handleResetFilters = () => {

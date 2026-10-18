@@ -18,14 +18,17 @@ import {
 } from 'lucide-react';
 
 import { EventSphereLogo } from '../common/EventSphereLogo';
+import { useToast } from '../../context/ToastContext';
 
 export const Sidebar = ({ isOpen, onClose }) => {
   const { user, logout, isAdmin, isOrganizer, isAttendee } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    showToast('You have been logged out successfully.', 'info');
+    navigate('/login', { replace: true });
   };
 
   return (
@@ -68,15 +71,6 @@ export const Sidebar = ({ isOpen, onClose }) => {
             </NavLink>
 
             <div className="sidebar-divider" />
-
-            <NavLink
-              to="/attendee/bookings"
-              className={({ isActive }) => `sidebar-nav-item ${isActive ? 'active' : ''}`}
-              onClick={onClose}
-            >
-              <Ticket size={17} />
-              <span>Bookings</span>
-            </NavLink>
 
             <NavLink
               to="/events"

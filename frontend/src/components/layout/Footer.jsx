@@ -1,9 +1,12 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Heart } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 import { EventSphereLogo } from '../common/EventSphereLogo';
 
 export const Footer = () => {
+  const { user } = useAuth();
+
   return (
     <footer style={{ background: '#FFFFFF', borderTop: '1px solid var(--border-subtle)', padding: '56px 0 28px 0', marginTop: 'auto' }}>
       <div className="app-container">
@@ -37,23 +40,35 @@ export const Footer = () => {
               For Organizers
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
-              <Link to="/organizer/events/new">Publish an Event</Link>
-              <Link to="/organizer/dashboard">Organizer Dashboard</Link>
-              <Link to="/organizer/analytics">Performance Analytics</Link>
-              <Link to="/organizer/events">Manage Attendee Lists</Link>
+              {user?.role === 'organizer' || user?.role === 'admin' ? (
+                <>
+                  <Link to="/organizer/events/new">Publish an Event</Link>
+                  <Link to="/organizer/dashboard">Organizer Dashboard</Link>
+                  <Link to="/organizer/analytics">Performance Analytics</Link>
+                  <Link to="/organizer/events">Manage Attendee Lists</Link>
+                </>
+              ) : (
+                <>
+                  <Link to="/login">Host & Organize Events</Link>
+                  <Link to="/events">Explore Local Events</Link>
+                  <Link to="/categories">Browse Categories</Link>
+                </>
+              )}
             </div>
           </div>
 
-          {/* Demo Accounts */}
+          {/* Portals & Accounts */}
           <div>
             <h4 style={{ fontSize: '0.92rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: 16 }}>
-              Demo Portals
+              Account & Portals
             </h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
               <Link to="/login">Sign In / Switch Roles</Link>
-              <Link to="/register">Create Test Account</Link>
-              <Link to="/admin/dashboard">Administration Control</Link>
-              <Link to="/settings">Demo Preferences</Link>
+              <Link to="/register">Create Account</Link>
+              {user?.role === 'admin' && (
+                <Link to="/admin/dashboard">Administration Control</Link>
+              )}
+              <Link to="/settings">Account Settings</Link>
             </div>
           </div>
         </div>
